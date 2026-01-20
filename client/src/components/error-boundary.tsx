@@ -38,7 +38,9 @@ export class ErrorBoundary extends Component<Props, State> {
             <CardHeader className="bg-red-50 border-b border-red-200">
               <div className="flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-red-600" />
-                <CardTitle className="text-red-900">Something Went Wrong</CardTitle>
+                <CardTitle className="text-red-900">
+                  Something Went Wrong
+                </CardTitle>
               </div>
             </CardHeader>
             <CardContent className="pt-6">
