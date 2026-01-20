@@ -30,6 +30,7 @@ export default defineConfig({
     },
   },
   root: path.resolve(__dirname, "client"),
+  base: process.env.GITHUB_PAGES ? "/ForesTracker-0/" : "/",
   build: {
     outDir: path.resolve(__dirname, "dist/public"),
     emptyOutDir: true,

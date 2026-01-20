@@ -4,8 +4,16 @@ import { AppLayout } from "@/components/layouts/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -21,28 +29,58 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  MoreHorizontal, 
+import {
+  Plus,
+  Search,
+  Filter,
+  MoreHorizontal,
   Edit,
   Trash2,
   User as UserIcon,
   Shield,
-  Mail
+  Mail,
 } from "lucide-react";
 
 type UserFormValues = z.infer<typeof userFormSchema>;
 
 // Extended schema with validation
-const userFormSchema = insertUserSchema.extend({
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  confirmPassword: z.string(),
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"]
-});
+const userFormSchema = insertUserSchema
+  .extend({
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
+
+// Create a separate schema for editing users
+const editUserFormSchema = z
+  .object({
+    username: z.string().min(3).optional(),
+    fullName: z.string().min(2).optional(),
+    email: z.string().email().optional(),
+    role: z.enum(["admin", "manager", "field_worker"]).optional(),
+    password: z
+      .string()
+      .min(6, "Password must be at least 6 characters")
+      .optional(),
+    confirmPassword: z.string().optional(),
+    profileImage: z.string().nullable().optional(),
+  })
+  .refine(
+    (data) =>
+      !data.password ||
+      !data.confirmPassword ||
+      data.password === data.confirmPassword,
+    {
+      message: "Passwords don't match",
+      path: ["confirmPassword"],
+    }
+  );
+
+// Define the Role type to use throughout the component
+type UserRole = "admin" | "manager" | "field_worker";
 
 export default function Users() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -54,16 +92,16 @@ export default function Users() {
 
   // Fetch users
   const { data: users = [], isLoading } = useQuery<User[]>({
-    queryKey: ['/api/users'],
+    queryKey: ["/api/users"],
   });
 
   // Create user mutation
   const createUserMutation = useMutation({
     mutationFn: (data: InsertUser) => {
-      return apiRequest('POST', '/api/users', data);
+      return apiRequest("POST", "/api/users", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({
         title: "Success",
         description: "User created successfully",
@@ -82,10 +120,10 @@ export default function Users() {
   // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: (data: { id: number; user: Partial<InsertUser> }) => {
-      return apiRequest('PUT', `/api/users/${data.id}`, data.user);
+      return apiRequest("PUT", `/api/users/${data.id}`, data.user);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({
         title: "Success",
         description: "User updated successfully",
@@ -105,10 +143,10 @@ export default function Users() {
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: (id: number) => {
-      return apiRequest('DELETE', `/api/users/${id}`);
+      return apiRequest("DELETE", `/api/users/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({
         title: "Success",
         description: "User deleted successfully",
@@ -133,19 +171,19 @@ export default function Users() {
       fullName: "",
       email: "",
       role: "field_worker",
-      profileImage: null
+      profileImage: null,
     },
   });
 
   // Form for editing users
-  const editUserForm = useForm<Partial<UserFormValues>>({
-    resolver: zodResolver(userFormSchema.partial()),
+  const editUserForm = useForm<z.infer<typeof editUserFormSchema>>({
+    resolver: zodResolver(editUserFormSchema),
     defaultValues: {
       username: editingUser?.username || "",
       fullName: editingUser?.fullName || "",
       email: editingUser?.email || "",
-      role: editingUser?.role || "field_worker",
-      profileImage: editingUser?.profileImage || null
+      role: (editingUser?.role as UserRole) || "field_worker",
+      profileImage: editingUser?.profileImage || null,
     },
   });
 
@@ -158,16 +196,22 @@ export default function Users() {
   // Handle form submission for editing users
   const onSubmitEditUser = (data: Partial<UserFormValues>) => {
     if (!editingUser) return;
-    
+
     // Remove confirmPassword from the data sent to the API
     const { confirmPassword, ...userData } = data;
-    
+
     // Only include properties that have been changed
     const changes: Partial<InsertUser> = {};
-    if (userData.username !== undefined && userData.username !== editingUser.username) {
+    if (
+      userData.username !== undefined &&
+      userData.username !== editingUser.username
+    ) {
       changes.username = userData.username;
     }
-    if (userData.fullName !== undefined && userData.fullName !== editingUser.fullName) {
+    if (
+      userData.fullName !== undefined &&
+      userData.fullName !== editingUser.fullName
+    ) {
       changes.fullName = userData.fullName;
     }
     if (userData.email !== undefined && userData.email !== editingUser.email) {
@@ -179,10 +223,13 @@ export default function Users() {
     if (userData.password !== undefined && userData.password !== "") {
       changes.password = userData.password;
     }
-    if (userData.profileImage !== undefined && userData.profileImage !== editingUser.profileImage) {
+    if (
+      userData.profileImage !== undefined &&
+      userData.profileImage !== editingUser.profileImage
+    ) {
       changes.profileImage = userData.profileImage;
     }
-    
+
     // Only update if there are changes
     if (Object.keys(changes).length > 0) {
       updateUserMutation.mutate({ id: editingUser.id, user: changes });
@@ -199,54 +246,64 @@ export default function Users() {
         username: editingUser.username,
         fullName: editingUser.fullName,
         email: editingUser.email,
-        role: editingUser.role,
+        role: editingUser.role as UserRole,
         profileImage: editingUser.profileImage,
         password: "",
-        confirmPassword: ""
+        confirmPassword: "",
       });
     }
   });
 
   // Filter users
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = searchTerm === "" || 
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
+      searchTerm === "" ||
       user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesRole = roleFilter === "all" || user.role === roleFilter;
-    
+
     return matchesSearch && matchesRole;
   });
 
   // Get initials for avatar fallback
   const getInitials = (name: string) => {
     return name
-      .split(' ')
-      .map(part => part.charAt(0).toUpperCase())
-      .join('')
+      .split(" ")
+      .map((part) => part.charAt(0).toUpperCase())
+      .join("")
       .substring(0, 2);
   };
 
   // Role related utility functions
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
-      case 'admin': return 'bg-error bg-opacity-10 text-error';
-      case 'manager': return 'bg-warning bg-opacity-10 text-warning';
-      case 'field_worker': return 'bg-info bg-opacity-10 text-info';
-      default: return 'bg-neutral-100 text-neutral-700';
+      case "admin":
+        return "bg-error bg-opacity-10 text-error";
+      case "manager":
+        return "bg-warning bg-opacity-10 text-warning";
+      case "field_worker":
+        return "bg-info bg-opacity-10 text-info";
+      default:
+        return "bg-neutral-100 text-neutral-700";
     }
   };
 
   const formatRoleLabel = (role: string) => {
-    return role.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    return role
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   };
 
   return (
     <AppLayout>
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-sans font-bold text-neutral-800">User Management</h1>
+          <h1 className="text-2xl font-sans font-bold text-neutral-800">
+            User Management
+          </h1>
           <p className="text-neutral-600 mt-1">Manage users and their roles</p>
         </div>
         <div className="mt-4 md:mt-0 flex gap-2">
@@ -260,9 +317,7 @@ export default function Users() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add New User</DialogTitle>
-                <DialogDescription>
-                  Create a new user account
-                </DialogDescription>
+                <DialogDescription>Create a new user account</DialogDescription>
               </DialogHeader>
               <form onSubmit={addUserForm.handleSubmit(onSubmitAddUser)}>
                 <div className="grid gap-4 py-4">
@@ -281,7 +336,7 @@ export default function Users() {
                       </p>
                     )}
                   </div>
-                  
+
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="username" className="text-right">
                       Username
@@ -297,7 +352,7 @@ export default function Users() {
                       </p>
                     )}
                   </div>
-                  
+
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="email" className="text-right">
                       Email
@@ -314,7 +369,7 @@ export default function Users() {
                       </p>
                     )}
                   </div>
-                  
+
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="password" className="text-right">
                       Password
@@ -331,7 +386,7 @@ export default function Users() {
                       </p>
                     )}
                   </div>
-                  
+
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="confirmPassword" className="text-right">
                       Confirm Password
@@ -348,13 +403,15 @@ export default function Users() {
                       </p>
                     )}
                   </div>
-                  
+
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="role" className="text-right">
                       Role
                     </Label>
                     <Select
-                      onValueChange={(value) => addUserForm.setValue("role", value)}
+                      onValueChange={(value) =>
+                        addUserForm.setValue("role", value)
+                      }
                       defaultValue={addUserForm.getValues("role")}
                     >
                       <SelectTrigger id="role" className="col-span-3">
@@ -363,14 +420,18 @@ export default function Users() {
                       <SelectContent>
                         <SelectItem value="admin">Admin</SelectItem>
                         <SelectItem value="manager">Manager</SelectItem>
-                        <SelectItem value="field_worker">Field Worker</SelectItem>
+                        <SelectItem value="field_worker">
+                          Field Worker
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
                 <DialogFooter>
                   <Button type="submit" disabled={createUserMutation.isPending}>
-                    {createUserMutation.isPending ? "Creating..." : "Create User"}
+                    {createUserMutation.isPending
+                      ? "Creating..."
+                      : "Create User"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -383,7 +444,10 @@ export default function Users() {
         <CardHeader className="p-6 border-b">
           <div className="flex flex-col md:flex-row gap-4 justify-between">
             <div className="relative w-full md:w-96">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400" size={16} />
+              <Search
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400"
+                size={16}
+              />
               <Input
                 placeholder="Search users..."
                 className="pl-9"
@@ -396,7 +460,12 @@ export default function Users() {
                 <SelectTrigger>
                   <div className="flex items-center gap-2">
                     <Filter size={16} />
-                    <span>Role: {roleFilter === "all" ? "All" : formatRoleLabel(roleFilter)}</span>
+                    <span>
+                      Role:{" "}
+                      {roleFilter === "all"
+                        ? "All"
+                        : formatRoleLabel(roleFilter)}
+                    </span>
                   </div>
                 </SelectTrigger>
                 <SelectContent>
@@ -435,34 +504,46 @@ export default function Users() {
                 <div className="flex flex-col items-center">
                   <UserIcon className="h-12 w-12 mb-2 text-neutral-400" />
                   No users found
-                  <p className="text-sm mt-1">Try changing your filters or add a new user</p>
+                  <p className="text-sm mt-1">
+                    Try changing your filters or add a new user
+                  </p>
                 </div>
               </div>
             ) : (
               filteredUsers.map((user) => {
                 const roleBadgeColor = getRoleBadgeColor(user.role);
-                
+
                 return (
                   <Card key={user.id} className="overflow-hidden">
                     <CardContent className="p-6">
                       <div className="flex justify-between mb-4">
                         <div className="flex items-center gap-4">
                           <Avatar className="h-12 w-12">
-                            <AvatarImage src={user.profileImage || ""} alt={user.fullName} />
-                            <AvatarFallback>{getInitials(user.fullName)}</AvatarFallback>
+                            <AvatarImage
+                              src={user.profileImage || ""}
+                              alt={user.fullName}
+                            />
+                            <AvatarFallback>
+                              {getInitials(user.fullName)}
+                            </AvatarFallback>
                           </Avatar>
                           <div>
                             <h3 className="font-medium">{user.fullName}</h3>
-                            <p className="text-sm text-neutral-500">@{user.username}</p>
+                            <p className="text-sm text-neutral-500">
+                              @{user.username}
+                            </p>
                           </div>
                         </div>
-                        <Dialog open={isEditDialogOpen && editingUser?.id === user.id} onOpenChange={(open) => {
-                          setIsEditDialogOpen(open);
-                          if (!open) setEditingUser(null);
-                        }}>
+                        <Dialog
+                          open={isEditDialogOpen && editingUser?.id === user.id}
+                          onOpenChange={(open) => {
+                            setIsEditDialogOpen(open);
+                            if (!open) setEditingUser(null);
+                          }}
+                        >
                           <DialogTrigger asChild>
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="icon"
                               onClick={() => setEditingUser(user)}
                             >
@@ -476,10 +557,17 @@ export default function Users() {
                                 Update user details
                               </DialogDescription>
                             </DialogHeader>
-                            <form onSubmit={editUserForm.handleSubmit(onSubmitEditUser)}>
+                            <form
+                              onSubmit={editUserForm.handleSubmit(
+                                onSubmitEditUser
+                              )}
+                            >
                               <div className="grid gap-4 py-4">
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label htmlFor="edit-fullName" className="text-right">
+                                  <Label
+                                    htmlFor="edit-fullName"
+                                    className="text-right"
+                                  >
                                     Full Name
                                   </Label>
                                   <Input
@@ -489,9 +577,12 @@ export default function Users() {
                                     {...editUserForm.register("fullName")}
                                   />
                                 </div>
-                                
+
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label htmlFor="edit-username" className="text-right">
+                                  <Label
+                                    htmlFor="edit-username"
+                                    className="text-right"
+                                  >
                                     Username
                                   </Label>
                                   <Input
@@ -501,9 +592,12 @@ export default function Users() {
                                     {...editUserForm.register("username")}
                                   />
                                 </div>
-                                
+
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label htmlFor="edit-email" className="text-right">
+                                  <Label
+                                    htmlFor="edit-email"
+                                    className="text-right"
+                                  >
                                     Email
                                   </Label>
                                   <Input
@@ -514,9 +608,12 @@ export default function Users() {
                                     {...editUserForm.register("email")}
                                   />
                                 </div>
-                                
+
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label htmlFor="edit-password" className="text-right">
+                                  <Label
+                                    htmlFor="edit-password"
+                                    className="text-right"
+                                  >
                                     New Password
                                   </Label>
                                   <Input
@@ -527,9 +624,12 @@ export default function Users() {
                                     {...editUserForm.register("password")}
                                   />
                                 </div>
-                                
+
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label htmlFor="edit-confirmPassword" className="text-right">
+                                  <Label
+                                    htmlFor="edit-confirmPassword"
+                                    className="text-right"
+                                  >
                                     Confirm Password
                                   </Label>
                                   <Input
@@ -537,44 +637,72 @@ export default function Users() {
                                     type="password"
                                     className="col-span-3"
                                     placeholder="Leave blank to keep current password"
-                                    {...editUserForm.register("confirmPassword")}
+                                    {...editUserForm.register(
+                                      "confirmPassword"
+                                    )}
                                   />
-                                  {editUserForm.formState.errors.confirmPassword && (
+                                  {editUserForm.formState.errors
+                                    .confirmPassword && (
                                     <p className="col-span-3 col-start-2 text-sm text-destructive">
-                                      {editUserForm.formState.errors.confirmPassword.message}
+                                      {
+                                        editUserForm.formState.errors
+                                          .confirmPassword.message
+                                      }
                                     </p>
                                   )}
                                 </div>
-                                
+
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label htmlFor="edit-role" className="text-right">
+                                  <Label
+                                    htmlFor="edit-role"
+                                    className="text-right"
+                                  >
                                     Role
                                   </Label>
                                   <Select
-                                    onValueChange={(value) => editUserForm.setValue("role", value)}
+                                    onValueChange={(value) =>
+                                      editUserForm.setValue(
+                                        "role",
+                                        value as UserRole
+                                      )
+                                    }
                                     defaultValue={user.role}
                                   >
-                                    <SelectTrigger id="edit-role" className="col-span-3">
+                                    <SelectTrigger
+                                      id="edit-role"
+                                      className="col-span-3"
+                                    >
                                       <SelectValue placeholder="Select role" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="admin">Admin</SelectItem>
-                                      <SelectItem value="manager">Manager</SelectItem>
-                                      <SelectItem value="field_worker">Field Worker</SelectItem>
+                                      <SelectItem value="admin">
+                                        Admin
+                                      </SelectItem>
+                                      <SelectItem value="manager">
+                                        Manager
+                                      </SelectItem>
+                                      <SelectItem value="field_worker">
+                                        Field Worker
+                                      </SelectItem>
                                     </SelectContent>
                                   </Select>
                                 </div>
                               </div>
                               <DialogFooter>
-                                <Button type="submit" disabled={updateUserMutation.isPending}>
-                                  {updateUserMutation.isPending ? "Updating..." : "Update User"}
+                                <Button
+                                  type="submit"
+                                  disabled={updateUserMutation.isPending}
+                                >
+                                  {updateUserMutation.isPending
+                                    ? "Updating..."
+                                    : "Update User"}
                                 </Button>
                               </DialogFooter>
                             </form>
                           </DialogContent>
                         </Dialog>
                       </div>
-                      
+
                       <div className="space-y-2 mb-4">
                         <div className="flex items-center gap-2 text-sm">
                           <Mail className="h-4 w-4 text-neutral-500" />
@@ -585,17 +713,23 @@ export default function Users() {
                           <span>User ID: {user.id}</span>
                         </div>
                       </div>
-                      
+
                       <div className="flex justify-between items-center mt-4">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${roleBadgeColor}`}>
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${roleBadgeColor}`}
+                        >
                           {formatRoleLabel(user.role)}
                         </span>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           className="text-destructive"
                           onClick={() => {
-                            if (confirm("Are you sure you want to delete this user?")) {
+                            if (
+                              confirm(
+                                "Are you sure you want to delete this user?"
+                              )
+                            ) {
                               deleteUserMutation.mutate(user.id);
                             }
                           }}
