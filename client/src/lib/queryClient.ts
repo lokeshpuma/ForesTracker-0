@@ -1,4 +1,7 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { mockApiRequest } from "@/lib/mockApi";
+
+const useMockApi = import.meta.env.VITE_STATIC_DEMO === "true";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -12,6 +15,12 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  if (useMockApi) {
+    const res = await mockApiRequest(method, url, data);
+    await throwIfResNotOk(res);
+    return res;
+  }
+
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
@@ -29,6 +38,13 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    if (useMockApi) {
+      const query = queryKey.length > 1 ? `?${String(queryKey[1])}` : "";
+      const res = await mockApiRequest("GET", `${String(queryKey[0])}${query}`);
+      await throwIfResNotOk(res);
+      return (await res.json()) as T;
+    }
+
     const res = await fetch(queryKey[0] as string, {
       credentials: "include",
     });
@@ -52,13 +68,6 @@ export const queryClient = new QueryClient({
     },
     mutations: {
       retry: 1,
-    },
-  },
-});
-      retry: false,
-    },
-    mutations: {
-      retry: false,
     },
   },
 });
